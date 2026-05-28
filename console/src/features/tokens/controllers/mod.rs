@@ -4,6 +4,7 @@ mod deploy_token;
 mod deposit_treasury;
 mod get_token;
 mod mint_token;
+mod round_distribution;
 mod set_distribution_slots;
 mod update_token;
 
@@ -13,5 +14,6 @@ pub use deploy_token::*;
 pub use deposit_treasury::*;
 pub use get_token::*;
 pub use mint_token::*;
+pub use round_distribution::*;
 pub use set_distribution_slots::*;
 pub use update_token::*;

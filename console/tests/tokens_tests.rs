@@ -304,3 +304,133 @@ async fn get_token_balance_not_found_for_unknown_user() {
     let res = client.get(&path).await;
     assert_eq!(res.status, StatusCode::NOT_FOUND, "body: {}", res.body_text);
 }
+
+// ----- round distributions -----------------------------------------------
+
+#[tokio::test]
+async fn create_round_distribution_rejects_empty_allocations() {
+    let server = test_server().await;
+    let client = server.client();
+    let seeded = factories::new_enterprise_with_project().await;
+    factories::new_deployed_token(&seeded.project, "2026-01").await;
+
+    client
+        .signin(
+            &seeded.enterprise.owner.account.email,
+            &seeded.enterprise.owner.password_plain,
+        )
+        .await;
+
+    let path = format!(
+        "/v1/projects/{}/tokens/round-distributions",
+        factories::project_id_segment(&seeded.project)
+    );
+    let res = client
+        .post_json(
+            &path,
+            &json!({
+                "round_id": "launchpad-2026-q2",
+                "idempotency_key": "empty-round",
+                "allocations": [],
+            }),
+        )
+        .await;
+
+    assert!(
+        res.status.is_client_error(),
+        "expected 4xx for empty allocations, got {} — {}",
+        res.status,
+        res.body_text
+    );
+}
+
+#[tokio::test]
+async fn create_round_distribution_submits_and_is_idempotent() {
+    let server = test_server().await;
+    let client = server.client();
+    let seeded = factories::new_enterprise_with_project().await;
+    factories::new_deployed_token(&seeded.project, "2026-01").await;
+
+    client
+        .signin(
+            &seeded.enterprise.owner.account.email,
+            &seeded.enterprise.owner.password_plain,
+        )
+        .await;
+
+    let path = format!(
+        "/v1/projects/{}/tokens/round-distributions",
+        factories::project_id_segment(&seeded.project)
+    );
+    let body = json!({
+        "round_id": "launchpad-2026-q2",
+        "idempotency_key": "round-key-1",
+        "allocations": [
+            {
+                "wallet_address": "0x000000000000000000000000000000000000000a",
+                "amount_raw": "1000",
+                "meta_user_id": "brand-user-1"
+            }
+        ],
+    });
+
+    let first = client.post_json(&path, &body).await;
+    assert_eq!(first.status, StatusCode::OK, "body: {}", first.body_text);
+    assert!(
+        first
+            .body_text
+            .contains("\"round_id\":\"launchpad-2026-q2\"")
+    );
+    assert!(first.body_text.contains("\"status\":\"submitted\""));
+    assert!(first.body_text.contains("0x"));
+
+    let second = client.post_json(&path, &body).await;
+    assert_eq!(second.status, StatusCode::OK, "body: {}", second.body_text);
+    assert_eq!(first.body_text, second.body_text);
+
+    let get = client.get(&format!("{path}/launchpad-2026-q2")).await;
+    assert_eq!(get.status, StatusCode::OK, "body: {}", get.body_text);
+    assert!(get.body_text.contains("\"recipient_count\":1"));
+    assert!(get.body_text.contains("\"total_amount_raw\":\"1000\""));
+}
+
+#[tokio::test]
+async fn create_round_distribution_requires_deployed_token() {
+    let server = test_server().await;
+    let client = server.client();
+    let seeded = factories::new_enterprise_with_project().await;
+
+    client
+        .signin(
+            &seeded.enterprise.owner.account.email,
+            &seeded.enterprise.owner.password_plain,
+        )
+        .await;
+
+    let path = format!(
+        "/v1/projects/{}/tokens/round-distributions",
+        factories::project_id_segment(&seeded.project)
+    );
+    let res = client
+        .post_json(
+            &path,
+            &json!({
+                "round_id": "launchpad-2026-q2",
+                "idempotency_key": "missing-token",
+                "allocations": [
+                    {
+                        "wallet_address": "0x000000000000000000000000000000000000000a",
+                        "amount_raw": "1000"
+                    }
+                ],
+            }),
+        )
+        .await;
+
+    assert!(
+        res.status == StatusCode::NOT_FOUND || res.status.is_client_error(),
+        "expected missing/deployment token rejection, got {} — {}",
+        res.status,
+        res.body_text
+    );
+}

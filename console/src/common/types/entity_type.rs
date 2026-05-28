@@ -37,6 +37,9 @@ pub enum EntityType {
 
     // Token claim (deduplication)
     TxClaim(String),
+    RoundDistribution(String),
+    RoundDistributionRecipient(String),
+    DistributionDedup(String),
 
     // Update
     Update,

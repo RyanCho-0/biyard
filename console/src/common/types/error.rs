@@ -145,12 +145,12 @@ impl dioxus::fullstack::AsStatusCode for Error {
                 TokenError::InsufficientTokens
                 | TokenError::InvalidTokenAmount
                 | TokenError::TokenAlreadyExists
-                | TokenError::AlreadyDeployed => StatusCode::BAD_REQUEST,
+                | TokenError::AlreadyDeployed
+                | TokenError::InvalidRoundDistribution(_) => StatusCode::BAD_REQUEST,
                 TokenError::DeployFailed(_)
                 | TokenError::MintFailed(_)
-                | TokenError::DepositFailed(_) => {
-                    StatusCode::INTERNAL_SERVER_ERROR
-                }
+                | TokenError::DepositFailed(_)
+                | TokenError::RoundDistributionFailed(_) => StatusCode::INTERNAL_SERVER_ERROR,
             },
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }

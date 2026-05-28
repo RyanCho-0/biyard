@@ -31,4 +31,10 @@ pub enum TokenError {
 
     #[error("Treasury deposit failed: {0}")]
     DepositFailed(String),
+
+    #[error("Invalid round distribution: {0}")]
+    InvalidRoundDistribution(String),
+
+    #[error("Round distribution failed: {0}")]
+    RoundDistributionFailed(String),
 }
